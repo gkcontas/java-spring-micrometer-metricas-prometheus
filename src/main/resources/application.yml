@@ -1,0 +1,62 @@
+spring:
+  application:
+    # Becomes the `application` common tag on every meter, via MetricsConfig.
+    name: metrics-observability
+  datasource:
+    url: jdbc:postgresql://localhost:5432/metrics
+    username: metrics
+    password: metrics
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only what is needed. `*` is convenient in a demo and a liability anywhere else:
+        # /actuator/env and /actuator/heapdump are not things to leave reachable.
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  observations:
+    annotations:
+      # Without this, @Timed and @Counted are silently inert in Spring Boot 3.2+.
+      # MetricsAspectsAutoConfiguration is @ConditionalOnBooleanProperty on exactly this
+      # key, so the aspects are never registered, the annotated methods run normally, and
+      # the meters simply never appear. Nothing logs a warning.
+      enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        # Buckets for the built-in HTTP timer, published as a histogram for the same
+        # reason the business timer is: percentiles computed per instance do not
+        # aggregate across instances.
+        http.server.requests: true
+      slo:
+        # The HTTP service level objective. Note this is the properties route to the same
+        # thing MetricsConfig.sloHistograms does in code: a property is enough when the
+        # boundaries are static, code is needed when they depend on anything.
+        http.server.requests: 100ms,200ms,300ms,500ms,1s
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+app:
+  region: local
+  payment:
+    simulate-latency: true
+    # Enough failures to make the `reason` dimension show something on a dashboard.
+    failure-percentage: 12
+
+server:
+  tomcat:
+    mbeanregistry:
+      # Required for the tomcat.* metrics to exist at all. Off by default, and the usual
+      # reason "there are no Tomcat metrics" has no other explanation.
+      enabled: true
