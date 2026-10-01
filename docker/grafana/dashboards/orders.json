@@ -1,0 +1,754 @@
+{
+  "uid": "orders-observability",
+  "title": "Pedidos — observabilidade",
+  "description": "Metricas de negocio e tecnicas da aplicacao metrics-observability. Cada painel tem a descricao do porque da metrica, nao so do que ela mostra.",
+  "tags": [
+    "micrometer",
+    "prometheus",
+    "orders"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "editable": true,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Pedidos aceitos por minuto, por canal",
+      "description": "A metrica que nenhum framework entrega pronta. Heap e CPU dizem se a JVM esta viva; esta diz se a empresa esta vendendo. Sempre via rate(): o valor absoluto de um counter nao responde nenhuma pergunta.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (channel) (rate(orders_accepted_total[1m])) * 60",
+          "legendFormat": "{{channel}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Fila de pedidos pendentes",
+      "description": "Gauge: uma leitura instantanea, amostrada no scrape. Sobe e desce. Nao serve para contar eventos - tudo que acontecer entre dois scrapes e invisivel.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "orders_pending_orders",
+          "legendFormat": "pendentes",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Cumprimento do SLO (300 ms)",
+      "description": "A fracao de pedidos processados dentro do objetivo, lida direto de um bucket. Precisa porque existe um bucket exatamente em 300 ms - esse e o motivo de escolher os limites pelo SLO e nao aceitar os defaults. O limiar tracejado e o objetivo: a linha abaixo dele e exatamente o que a regra ProcessingSloBurn dispara.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(orders_processing_seconds_bucket{le=\"0.3\"}[5m])) / sum(rate(orders_processing_seconds_count[5m]))",
+          "legendFormat": "dentro do objetivo",
+          "range": true,
+          "refId": "A",
+          "instant": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Latencia de processamento (percentis do histograma)",
+      "description": "Percentil calculado NO PROMETHEUS a partir dos buckets. E o unico jeito de ter um p95 do servico inteiro: a media dos p95 de tres instancias nao e o p95 do conjunto.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(orders_processing_seconds_bucket[5m])))",
+          "legendFormat": "p50",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(orders_processing_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(orders_processing_seconds_bucket[5m])))",
+          "legendFormat": "p99",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Falhas de pagamento por motivo",
+      "description": "A dimensao vem de um enum fechado. Taguear pela mensagem crua do gateway e vazamento de cardinalidade: basta o provedor incluir um id na mensagem para cada falha virar uma serie.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (reason) (rate(orders_payment_failures_total[5m])) * 60",
+          "legendFormat": "{{reason}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Distribuicao do valor dos pedidos",
+      "description": "DistributionSummary: a mesma ideia do Timer para uma grandeza que nao e tempo. Um counter de receita total diz 'quanto'; isto diz 'como esta espalhado' - mil pedidos de um real e um pedido de mil reais somam igual.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "currencyBRL",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(orders_amount_BRL_bucket[5m])))",
+          "legendFormat": "mediana",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(orders_amount_BRL_bucket[5m])))",
+          "legendFormat": "p90",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Latencia HTTP p95 por rota",
+      "description": "Metrica que o Actuator publica sozinho. A tag uri e o caminho com template (/orders/{id}), nao o resolvido - e o que impede uma serie por id de pedido.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket[5m])))",
+          "legendFormat": "{{uri}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Saude dos componentes",
+      "description": "1 = alcancavel, 0 = nao. O /actuator/health responde a pergunta agora e nao guarda historico; o gauge e o que torna 'ficou fora quatro minutos na terca' uma pergunta respondivel.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "lineInterpolation": "stepAfter"
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "component_health",
+          "legendFormat": "{{component}}",
+          "range": true,
+          "refId": "A",
+          "instant": false
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Heap da JVM",
+      "description": "Metrica tecnica, de graca com o Actuator. Diz se o processo esta vivo - nao diz se o produto funciona.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 9,
+        "x": 6,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (id) (jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "{{id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Pool de conexoes (HikariCP)",
+      "description": "Tambem de graca. 'Aguardando' maior que zero de forma sustentada e saturacao do pool - o S de USE.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 9,
+        "x": 15,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "hikaricp_connections_active",
+          "legendFormat": "ativas",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "hikaricp_connections_pending",
+          "legendFormat": "aguardando",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "hikaricp_connections_max",
+          "legendFormat": "maximo",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Series temporais no Prometheus (cardinalidade)",
+      "description": "O painel que ninguem cria e todo mundo deveria. Cardinalidade nao explode de uma vez: cresce a cada deploy que adiciona uma tag. Esta linha e o aviso previo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "prometheus_tsdb_head_series",
+          "legendFormat": "series ativas",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Top 10 metricas por numero de series",
+      "description": "Qual metrica esta custando caro. Util no dia em que o painel ao lado comeca a subir.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, count by (__name__) ({__name__=~\"orders.*|http.*|jvm.*\"}))",
+          "legendFormat": "{{__name__}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "11.1.0"
+    }
+  ]
+}

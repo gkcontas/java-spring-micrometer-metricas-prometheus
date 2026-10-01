@@ -1,0 +1,25 @@
+global:
+  # How often every target is scraped. This is the resolution of every chart and the
+  # floor of every alert: nothing can be detected faster than one scrape interval, and
+  # a `rate()` over a window shorter than four intervals is mostly noise.
+  scrape_interval: 5s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: local-demo
+
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+
+scrape_configs:
+  - job_name: metrics-observability
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8080"]
+        labels:
+          environment: local
+
+  # Prometheus scrapes itself, which is how you find out that Prometheus is the thing
+  # that is down.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

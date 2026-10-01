@@ -1,0 +1,62 @@
+groups:
+
+  - name: business
+    rules:
+
+      # The alert a JVM dashboard cannot produce. Heap, threads and GC can all be
+      # perfectly healthy while the service stops accepting orders.
+      - alert: NoOrdersAccepted
+        expr: sum(rate(orders_accepted_total[5m])) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No orders accepted for five minutes"
+          description: "Every instance is up and nothing is being sold."
+
+      - alert: PaymentFailureRateHigh
+        expr: |
+          sum(rate(orders_payment_failures_total[5m]))
+            / sum(rate(orders_processing_seconds_count[5m])) > 0.25
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than a quarter of payments are failing"
+          description: "By reason: {{ $labels.reason }}"
+
+  - name: latency
+    rules:
+
+      # Written against the objective, not against a percentile. "95% of orders process
+      # in under 300 ms" is a sentence someone agreed to; "the p95 is 310 ms" is a
+      # number that needs translating every time it is read.
+      - alert: ProcessingSloBurn
+        expr: |
+          sum(rate(orders_processing_seconds_bucket{le="0.3"}[10m]))
+            / sum(rate(orders_processing_seconds_count[10m])) < 0.95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Less than 95% of orders processed within the 300 ms objective"
+
+  - name: availability
+    rules:
+
+      - alert: PaymentGatewayDown
+        expr: min_over_time(component_health{component="paymentGateway"}[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The payment gateway has been unreachable"
+
+      - alert: InstanceDown
+        expr: up{job="metrics-observability"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "An instance stopped answering scrapes"
+          description: "`up` is synthesised by Prometheus itself, so it still fires when the application cannot publish anything at all."
